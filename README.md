@@ -59,3 +59,13 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## At install run those
+cp .env.example .env
+sail artisan key:generate
+sail artisan composer install
+sail artisan npm install
+sail artisan npm run build
+sail artisan migrate
+sail artisan db:seed
+echo "127.0.0.1 fistful.test" | sudo tee -a /etc/hosts > /dev/null
