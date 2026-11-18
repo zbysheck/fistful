@@ -31,16 +31,12 @@ class InspirationGenerator
     }
 
     /**
-     * Przed ponownym generowaniem: usuwa niezweryfikowane powiązania AI tej strony i oznacza ją do napisania.
+     * Przed ponownym generowaniem: oznacza stronę do napisania. Istniejących powiązań nie kasujemy -
+     * model przy każdym przebiegu znajduje trochę inny zestaw, więc nowe wyniki się dopisują,
+     * a złe usuwa się ręcznie w kolejce do sprawdzenia.
      */
     public function reset(Work $work): void
     {
-        Inspiration::query()
-            ->where('origin', Inspiration::ORIGIN_AI)
-            ->where('verified', false)
-            ->where(fn ($q) => $q->where('source_work_id', $work->id)->orWhere('target_work_id', $work->id))
-            ->delete();
-
         $work->forceFill(['status' => Work::STUB])->save();
     }
 
@@ -163,7 +159,7 @@ class InspirationGenerator
         $matches = $this->wikidata->searchMany(array_map(
             fn (array $i): string => $i['title'],
             $items,
-        ), array_map(fn (array $i): ?int => $i['year'], $items));
+        ), array_map(fn (array $i): ?int => $i['year'], $items), array_map(fn (array $i): ?string => $i['medium'], $items));
 
         // Dzieła już podpięte do tej strony (np. z Wikidaty): ten sam tytuł = to samo dzieło, bez duplikatów.
         $linked = [];

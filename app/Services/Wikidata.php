@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\Taxonomy;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
@@ -101,9 +102,10 @@ class Wikidata
      *
      * @param  array<int, string>  $queries
      * @param  array<int, int|null>  $years
+     * @param  array<int, string|null>  $media
      * @return array<int, array{wikidata_id: string, title: string, description: string|null}|null>
      */
-    public function searchMany(array $queries, array $years = []): array
+    public function searchMany(array $queries, array $years = [], array $media = []): array
     {
         if ($queries === []) {
             return [];
@@ -149,14 +151,22 @@ class Wikidata
                 }
             }
             $candidates = self::rank($candidates);
+            // Najlepszy kandydat: zgodne medium i rok > samo medium > sam rok > pierwszy po rankingu.
             $year = $years[$key] ?? null;
+            $medium = $media[$key] ?? null;
             $item = $candidates[0] ?? null;
-            if ($year !== null) {
-                foreach ($candidates as $candidate) {
-                    if (str_contains((string) ($candidate['description'] ?? ''), (string) $year)) {
-                        $item = $candidate;
-                        break;
-                    }
+            $best = -1;
+            foreach ($candidates as $candidate) {
+                $score = 0;
+                if ($medium !== null && Taxonomy::mediumFromDescription($candidate['description']) === $medium) {
+                    $score += 2;
+                }
+                if ($year !== null && str_contains((string) $candidate['description'], (string) $year)) {
+                    $score += 1;
+                }
+                if ($score > $best) {
+                    $best = $score;
+                    $item = $candidate;
                 }
             }
             $out[$key] = $item;
