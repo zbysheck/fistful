@@ -2,7 +2,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import SearchBox from '@/components/SearchBox.vue';
 
-defineProps<{ wikidataId?: string | null }>();
+defineProps<{ wikidataId?: string | null; hideSearch?: boolean }>();
 
 const page = usePage();
 </script>
@@ -113,7 +113,10 @@ const page = usePage();
                     >
                         Fistful of Ideas
                     </Link>
-                    <div class="ml-auto w-full max-w-md lg:ml-0">
+                    <div
+                        v-if="!hideSearch"
+                        class="ml-auto w-full max-w-md lg:ml-0"
+                    >
                         <SearchBox />
                     </div>
                 </header>

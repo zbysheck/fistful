@@ -22,7 +22,7 @@ const chain = [
 
 <template>
     <Head title="Main Page" />
-    <WikiLayout>
+    <WikiLayout hide-search>
         <div
             class="mb-5 border border-rule bg-[#f6f6f6] px-4 py-5 text-center sm:px-8"
         >

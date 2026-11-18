@@ -254,6 +254,56 @@ class Wikidata
     }
 
     /**
+     * Tekst artykułu z angielskiej Wikipedii dla elementu Wikidaty (do kontekstu dla AI).
+     *
+     * @return array{url: string, text: string}|null
+     */
+    public function wikipediaArticle(string $id, int $maxChars = 30000): ?array
+    {
+        if (preg_match('/^Q\d+$/', $id) !== 1) {
+            return null;
+        }
+
+        try {
+            $title = $this->client()->get(self::API, [
+                'action' => 'wbgetentities',
+                'ids' => $id,
+                'props' => 'sitelinks',
+                'sitefilter' => 'enwiki',
+                'format' => 'json',
+            ])->json('entities.'.$id.'.sitelinks.enwiki.title');
+
+            if (! is_string($title) || $title === '') {
+                return null;
+            }
+
+            $pages = $this->client()->timeout(15)->get('https://en.wikipedia.org/w/api.php', [
+                'action' => 'query',
+                'prop' => 'extracts',
+                'explaintext' => 1,
+                'redirects' => 1,
+                'titles' => $title,
+                'format' => 'json',
+            ])->json('query.pages');
+        } catch (Throwable $e) {
+            Log::warning('Wikipedia fetch failed', ['id' => $id, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        $page = is_array($pages) ? reset($pages) : null;
+        $text = is_array($page) && is_string($page['extract'] ?? null) ? $page['extract'] : '';
+        if (trim($text) === '') {
+            return null;
+        }
+
+        return [
+            'url' => 'https://en.wikipedia.org/wiki/'.str_replace(' ', '_', $title),
+            'text' => mb_substr($text, 0, $maxChars),
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $claims
      */
     private function year(array $claims): ?int
