@@ -81,11 +81,11 @@ class WorkTest extends TestCase
 
         Http::fake([
             'query.wikidata.org/*' => Http::response(['results' => ['bindings' => [
-                ['dir' => ['value' => 'to'], 'item' => ['value' => 'http://www.wikidata.org/entity/Q2'], 'itemLabel' => ['value' => 'A Fistful of Dollars']],
+                ['dir' => ['value' => 'to'], 'p' => ['value' => 'http://www.wikidata.org/prop/direct/P144'], 'item' => ['value' => 'http://www.wikidata.org/entity/Q2'], 'itemLabel' => ['value' => 'A Fistful of Dollars']],
             ]]]),
             'generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode([
                 'inspired_by' => [
-                    ['title' => 'Red Harvest', 'year' => 1929, 'note' => "Kurosawa's *Yojimbo* borrows its premise from Dashiell Hammett's *Red Harvest*.", 'source_url' => 'https://example.com/ok'],
+                    ['title' => 'Red Harvest', 'year' => 1929, 'medium' => 'book', 'kind' => 'story', 'note' => "Kurosawa's *Yojimbo* borrows its premise from Dashiell Hammett's *Red Harvest*.", 'source_url' => 'https://example.com/ok'],
                     ['title' => 'Fake Book', 'year' => 1900, 'note' => '*Yojimbo* and *Fake Book*.', 'source_url' => 'https://example.com/missing'],
                     ['title' => 'No Source', 'note' => '*Yojimbo* and *No Source*.', 'source_url' => ''],
                 ],
@@ -101,7 +101,11 @@ class WorkTest extends TestCase
         $this->assertSame(Work::READY, $work->refresh()->status);
         $this->assertSame(['A Fistful of Dollars'], $work->inspired()->with('target')->get()->pluck('target.title')->all());
         $this->assertSame(['Red Harvest'], $work->inspiredBy()->with('source')->get()->pluck('source.title')->all());
-        $this->assertFalse($work->inspiredBy()->firstOrFail()->verified);
+        $harvest = $work->inspiredBy()->with('source')->firstOrFail();
+        $this->assertFalse($harvest->verified);
+        $this->assertSame('story', $harvest->kind);
+        $this->assertSame('book', $harvest->source->medium);
+        $this->assertSame('adaptation', $work->inspired()->firstOrFail()->kind);
     }
 
     public function test_admin_requires_password(): void

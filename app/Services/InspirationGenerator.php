@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Inspiration;
 use App\Models\Work;
+use App\Support\Taxonomy;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
@@ -71,11 +72,17 @@ class InspirationGenerator
         try {
             $known = $work->wikidata_id !== null ? $this->wikidata->connections($work->wikidata_id) : ['inspired_by' => [], 'inspired' => []];
 
+            if ($work->medium === null) {
+                $work->forceFill(['medium' => Taxonomy::mediumFromDescription($work->description)])->save();
+            }
+
             foreach ($known['inspired_by'] as $item) {
-                $this->connect($this->workFor($item['wikidata_id'], $item['title']), $work, null, null, Inspiration::ORIGIN_WIKIDATA, true);
+                $other = $this->workFor($item['wikidata_id'], $item['title'], $item['description']);
+                $this->connect($other, $work, $item['kind'], null, null, Inspiration::ORIGIN_WIKIDATA, true);
             }
             foreach ($known['inspired'] as $item) {
-                $this->connect($work, $this->workFor($item['wikidata_id'], $item['title']), null, null, Inspiration::ORIGIN_WIKIDATA, true);
+                $other = $this->workFor($item['wikidata_id'], $item['title'], $item['description']);
+                $this->connect($work, $other, $item['kind'], null, null, Inspiration::ORIGIN_WIKIDATA, true);
             }
 
             $aiOk = ! $this->gemini->enabled() || $this->fromAi($work, $known);
@@ -97,7 +104,7 @@ class InspirationGenerator
     }
 
     /**
-     * @param  array{inspired_by: list<array{wikidata_id: string, title: string}>, inspired: list<array{wikidata_id: string, title: string}>}  $known
+     * @param  array{inspired_by: list<array{wikidata_id: string, title: string, description: string|null, kind: string|null}>, inspired: list<array{wikidata_id: string, title: string, description: string|null, kind: string|null}>}  $known
      */
     private function fromAi(Work $work, array $known): bool
     {
@@ -114,7 +121,11 @@ class InspirationGenerator
             return false;
         }
 
-        /** @var list<array{dir: string, title: string, year: int|null, note: string, url: string}> $items */
+        if ($work->medium === null && Taxonomy::medium($data['medium'] ?? null) !== null) {
+            $work->forceFill(['medium' => Taxonomy::medium($data['medium'])])->save();
+        }
+
+        /** @var list<array{dir: string, title: string, year: int|null, note: string, url: string, kind: string|null, medium: string|null}> $items */
         $items = [];
         foreach (['inspired_by', 'inspired'] as $dir) {
             foreach (array_slice((array) ($data[$dir] ?? []), 0, 12) as $row) {
@@ -132,7 +143,15 @@ class InspirationGenerator
                 if (preg_match('~^https?://[^\s]+$~', $url) !== 1 || strlen($url) > 2000) {
                     continue;
                 }
-                $items[] = ['dir' => $dir, 'title' => $title, 'year' => $year, 'note' => $note, 'url' => $url];
+                $items[] = [
+                    'dir' => $dir,
+                    'title' => $title,
+                    'year' => $year,
+                    'note' => $note,
+                    'url' => $url,
+                    'kind' => Taxonomy::kind($row['kind'] ?? null),
+                    'medium' => Taxonomy::medium($row['medium'] ?? null),
+                ];
             }
         }
 
@@ -159,15 +178,18 @@ class InspirationGenerator
             $match = $matches[$i] ?? null;
             $known = $linked[$item['dir']][mb_strtolower($item['title'])] ?? null;
             $other = $known ?? ($match !== null
-                ? $this->workFor($match['wikidata_id'], $match['title'], $match['description'], $item['year'])
-                : $this->workByTitle($item['title'], $item['year']));
+                ? $this->workFor($match['wikidata_id'], $match['title'], $match['description'], $item['year'], $item['medium'])
+                : $this->workByTitle($item['title'], $item['year'], $item['medium']));
+            if ($other->medium === null && $item['medium'] !== null) {
+                $other->forceFill(['medium' => $item['medium']])->save();
+            }
 
             if ($other->id === $work->id) {
                 continue;
             }
 
             [$source, $target] = $item['dir'] === 'inspired_by' ? [$other, $work] : [$work, $other];
-            $this->connect($source, $target, $item['note'], $item['url'], Inspiration::ORIGIN_AI, false);
+            $this->connect($source, $target, $item['kind'], $item['note'], $item['url'], Inspiration::ORIGIN_AI, false);
         }
 
         return true;
@@ -177,8 +199,8 @@ class InspirationGenerator
      * Odrzuca powiązania, których źródło nie istnieje (404 itp.) albo nie wspomina drugiego dzieła -
      * typowe objawy zmyślonego linku.
      *
-     * @param  list<array{dir: string, title: string, year: int|null, note: string, url: string}>  $items
-     * @return list<array{dir: string, title: string, year: int|null, note: string, url: string}>
+     * @param  list<array{dir: string, title: string, year: int|null, note: string, url: string, kind: string|null, medium: string|null}>  $items
+     * @return list<array{dir: string, title: string, year: int|null, note: string, url: string, kind: string|null, medium: string|null}>
      */
     private function withLiveSources(array $items, Work $work): array
     {
@@ -222,13 +244,13 @@ class InspirationGenerator
         }, ARRAY_FILTER_USE_BOTH));
     }
 
-    private function connect(Work $source, Work $target, ?string $note, ?string $url, string $origin, bool $verified): void
+    private function connect(Work $source, Work $target, ?string $kind, ?string $note, ?string $url, string $origin, bool $verified): void
     {
         if ($source->id === $target->id) {
             return;
         }
 
-        DB::transaction(function () use ($source, $target, $note, $url, $origin, $verified) {
+        DB::transaction(function () use ($source, $target, $kind, $note, $url, $origin, $verified) {
             $existing = Inspiration::query()
                 ->where('source_work_id', $source->id)
                 ->where('target_work_id', $target->id)
@@ -238,6 +260,7 @@ class InspirationGenerator
                 Inspiration::query()->create([
                     'source_work_id' => $source->id,
                     'target_work_id' => $target->id,
+                    'kind' => $kind,
                     'note' => $note,
                     'source_url' => $url,
                     'origin' => $origin,
@@ -249,16 +272,21 @@ class InspirationGenerator
 
             // Uzupełniamy brakujące pola, nie nadpisujemy tego, co już ktoś ustalił.
             $existing->fill([
+                'kind' => $existing->kind ?? $kind,
                 'note' => $existing->note ?? $note,
                 'source_url' => $existing->source_url ?? $url,
             ])->save();
         });
     }
 
-    public function workFor(string $wikidataId, string $title, ?string $description = null, ?int $year = null): Work
+    public function workFor(string $wikidataId, string $title, ?string $description = null, ?int $year = null, ?string $medium = null): Work
     {
         $work = Work::query()->where('wikidata_id', $wikidataId)->first();
         if ($work !== null) {
+            if ($work->medium === null) {
+                $work->forceFill(['medium' => Taxonomy::mediumFromDescription($work->description ?? $description) ?? $medium])->save();
+            }
+
             return $work;
         }
 
@@ -267,12 +295,13 @@ class InspirationGenerator
             'title' => $title,
             'description' => $description !== null ? mb_substr($description, 0, 250) : null,
             'year' => $year,
+            'medium' => Taxonomy::mediumFromDescription($description) ?? $medium,
             'wikidata_id' => $wikidataId,
             'status' => Work::STUB,
         ]);
     }
 
-    private function workByTitle(string $title, ?int $year): Work
+    private function workByTitle(string $title, ?int $year, ?string $medium = null): Work
     {
         $work = Work::query()->where('title', $title)->when($year !== null, fn ($q) => $q->where('year', $year))->first();
 
@@ -280,12 +309,13 @@ class InspirationGenerator
             'slug' => Work::uniqueSlug($title, $year),
             'title' => $title,
             'year' => $year,
+            'medium' => $medium,
             'status' => Work::STUB,
         ]);
     }
 
     /**
-     * @param  array{inspired_by: list<array{wikidata_id: string, title: string}>, inspired: list<array{wikidata_id: string, title: string}>}  $known
+     * @param  array{inspired_by: list<array{wikidata_id: string, title: string, description: string|null, kind: string|null}>, inspired: list<array{wikidata_id: string, title: string, description: string|null, kind: string|null}>}  $known
      * @param  array{url: string, text: string}|null  $article
      */
     private function prompt(Work $work, array $known, bool $search, ?array $article): string
@@ -328,10 +358,18 @@ class InspirationGenerator
           instead of a title. Example: "Adrian Lyne modeled the death imagery in *Jacob's Ladder* on the Brothers
           Quay's *Street of Crocodiles*." Write titles with spaces, never underscores.
         - "title": the other work's common English title. "year": its year of first release, or null.
+        - "medium": the other work's medium, one of: book, film, tv, game, comic, music, art, theatre, myth, other
+          (myth also covers religious texts and folklore; book covers novels, stories and poems).
+        - "kind": how the influence works, one of:
+          adaptation (retells it in another form), remake (remake, sequel or continuation),
+          story (borrows plot, premise or structure), style (look, mood, sound or technique),
+          reference (title, names, quotes or allusions), parody, background (subject matter, research, historical basis).
         - At most 10 per direction, most significant first. Empty lists are fine.
 
         Reply with only a JSON object:
-        {"inspired_by": [{"title": "", "year": 0, "note": "", "source_url": ""}], "inspired": [...]}
+        {"medium": "<this work's medium>",
+         "inspired_by": [{"title": "", "year": 0, "medium": "", "kind": "", "note": "", "source_url": ""}],
+         "inspired": [...]}
         PROMPT;
     }
 

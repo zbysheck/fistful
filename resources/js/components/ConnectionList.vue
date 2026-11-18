@@ -1,16 +1,59 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { noteParts } from '@/lib/http';
+import { computed, ref } from 'vue';
+import ConnectionItem from '@/components/ConnectionItem.vue';
+import { KIND_LABELS, KINDS, MEDIA } from '@/lib/taxonomy';
 import type { Connection } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     id: string;
     title: string;
+    direction: 'by' | 'to';
     items: Connection[];
     empty: string;
+    currentTitle: string;
     isAdmin: boolean;
     refs: Record<string, number>;
 }>();
+
+/** Poniżej tej liczby pozycji nie dzielimy na podsekcje - krótka lista czyta się lepiej w całości. */
+const GROUP_FROM = 5;
+
+const medium = ref<string | null>(null);
+
+const mediumOf = (item: Connection) => item.work.medium ?? 'other';
+
+const media = computed(() => {
+    const counts: Record<string, number> = {};
+    for (const item of props.items) {
+        counts[mediumOf(item)] = (counts[mediumOf(item)] ?? 0) + 1;
+    }
+
+    return Object.keys(MEDIA)
+        .filter((m) => counts[m])
+        .map((m) => ({ key: m, label: MEDIA[m], count: counts[m] }));
+});
+
+const visible = computed(() =>
+    medium.value === null
+        ? props.items
+        : props.items.filter((item) => mediumOf(item) === medium.value),
+);
+
+const groups = computed(() => {
+    if (visible.value.length < GROUP_FROM) {
+        return [{ key: 'all', label: null, items: visible.value }];
+    }
+
+    return [...KINDS, 'other']
+        .map((kind) => ({
+            key: kind,
+            label: KIND_LABELS[props.direction][kind],
+            items: visible.value.filter(
+                (item) => (item.kind ?? 'other') === kind,
+            ),
+        }))
+        .filter((group) => group.items.length > 0);
+});
 </script>
 
 <template>
@@ -21,51 +64,53 @@ defineProps<{
         <p v-if="items.length === 0" class="text-muted italic">
             {{ empty }}
         </p>
-        <ul class="list-disc space-y-1.5 pl-6 leading-relaxed">
-            <li v-for="item in items" :key="item.id">
-                <Link :href="`/work/${item.work.slug}`" class="wiki-link">{{
-                    item.work.title
-                }}</Link
-                ><span v-if="item.work.year"> ({{ item.work.year }})</span>
-                <template v-if="item.note">
-                    –
-                    <template
-                        v-for="(part, i) in noteParts(item.note)"
-                        :key="i"
-                    >
-                        <i v-if="part.em">{{ part.text }}</i>
-                        <template v-else>{{ part.text }}</template>
-                    </template>
-                </template>
-                <template v-else-if="item.work.description">
-                    – {{ item.work.description }}
-                </template>
-                <sup
-                    v-if="item.source_url && refs[item.source_url]"
-                    class="text-[0.7em]"
-                    ><a
-                        :href="`#cite-${refs[item.source_url]}`"
-                        class="wiki-link"
-                        >[{{ refs[item.source_url] }}]</a
-                    ></sup
-                ><sup
-                    v-if="!item.source_url && item.origin === 'wikidata'"
-                    class="text-[0.7em]"
-                    ><a href="#cite-wikidata" class="wiki-link"
-                        >[Wikidata]</a
-                    ></sup
-                ><sup
-                    v-if="!item.verified"
-                    class="text-[0.7em] whitespace-nowrap italic"
-                    title="Written by AI from web sources, not yet checked by a human"
-                    >[<span class="text-link">unverified</span>]</sup
-                >
-                <span
-                    v-if="isAdmin && !item.note_ok"
-                    class="ml-1 text-xs font-bold text-redlink"
-                    >⚠ note doesn't name both works</span
-                >
-            </li>
-        </ul>
+
+        <div
+            v-if="media.length > 1"
+            class="mb-2 flex flex-wrap gap-1.5 text-sm"
+            role="group"
+            :aria-label="`Filter ${title} by medium`"
+        >
+            <button
+                :class="[
+                    'rounded-sm border px-2 py-0.5',
+                    medium === null
+                        ? 'border-link bg-[#eaf3ff] text-text'
+                        : 'border-rule text-link hover:bg-soft',
+                ]"
+                @click="medium = null"
+            >
+                All {{ items.length }}
+            </button>
+            <button
+                v-for="m in media"
+                :key="m.key"
+                :class="[
+                    'rounded-sm border px-2 py-0.5',
+                    medium === m.key
+                        ? 'border-link bg-[#eaf3ff] text-text'
+                        : 'border-rule text-link hover:bg-soft',
+                ]"
+                @click="medium = medium === m.key ? null : m.key"
+            >
+                {{ m.label }} {{ m.count }}
+            </button>
+        </div>
+
+        <div v-for="group in groups" :key="group.key">
+            <h3 v-if="group.label" class="mt-3 mb-1 font-bold">
+                {{ group.label }}
+            </h3>
+            <ul class="list-disc space-y-1.5 pl-6 leading-relaxed">
+                <ConnectionItem
+                    v-for="item in group.items"
+                    :key="item.id"
+                    :item="item"
+                    :current-title="currentTitle"
+                    :is-admin="isAdmin"
+                    :refs="refs"
+                />
+            </ul>
+        </div>
     </section>
 </template>

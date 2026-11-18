@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $source_work_id
  * @property int $target_work_id
+ * @property string|null $kind
  * @property string|null $note
  * @property string|null $source_url
  * @property string $origin
@@ -26,7 +27,7 @@ class Inspiration extends Model
 
     public const ORIGIN_MANUAL = 'manual';
 
-    protected $fillable = ['source_work_id', 'target_work_id', 'note', 'source_url', 'origin', 'verified'];
+    protected $fillable = ['source_work_id', 'target_work_id', 'kind', 'note', 'source_url', 'origin', 'verified'];
 
     protected function casts(): array
     {

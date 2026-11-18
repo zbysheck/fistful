@@ -211,8 +211,9 @@ class Wikidata
 
     /**
      * Gotowe powiązania z Wikidaty: P941 (inspired by) i P144 (based on), w obie strony.
+     * P144 traktujemy jako adaptację.
      *
-     * @return array{inspired_by: list<array{wikidata_id: string, title: string}>, inspired: list<array{wikidata_id: string, title: string}>}
+     * @return array{inspired_by: list<array{wikidata_id: string, title: string, description: string|null, kind: string|null}>, inspired: list<array{wikidata_id: string, title: string, description: string|null, kind: string|null}>}
      */
     public function connections(string $id): array
     {
@@ -222,12 +223,13 @@ class Wikidata
         }
 
         $query = <<<SPARQL
-        SELECT ?dir ?item ?itemLabel WHERE {
-          { wd:{$id} wdt:P941|wdt:P144 ?item . BIND("by" AS ?dir) }
+        SELECT ?dir ?p ?item ?itemLabel ?itemDescription WHERE {
+          VALUES ?p { wdt:P941 wdt:P144 }
+          { wd:{$id} ?p ?item . BIND("by" AS ?dir) }
           UNION
-          { ?item wdt:P941|wdt:P144 wd:{$id} . BIND("to" AS ?dir) }
+          { ?item ?p wd:{$id} . BIND("to" AS ?dir) }
           SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". }
-        } LIMIT 60
+        } LIMIT 80
         SPARQL;
 
         try {
@@ -248,8 +250,14 @@ class Wikidata
             if (! is_string($uri) || ! is_string($label) || preg_match('~/(Q\d+)$~', $uri, $m) !== 1 || $label === $m[1]) {
                 continue;
             }
+            $description = $row['itemDescription']['value'] ?? null;
             $key = ($row['dir']['value'] ?? '') === 'by' ? 'inspired_by' : 'inspired';
-            $out[$key][] = ['wikidata_id' => $m[1], 'title' => $label];
+            $out[$key][] = [
+                'wikidata_id' => $m[1],
+                'title' => $label,
+                'description' => is_string($description) ? $description : null,
+                'kind' => str_ends_with((string) ($row['p']['value'] ?? ''), 'P144') ? 'adaptation' : null,
+            ];
         }
 
         return $out;

@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
  * @property string $title
  * @property string|null $description
  * @property int|null $year
+ * @property string|null $medium
  * @property string|null $wikidata_id
  * @property string $status
  * @property CarbonImmutable|null $generated_at
@@ -27,7 +28,7 @@ class Work extends Model
 
     public const FAILED = 'failed';
 
-    protected $fillable = ['slug', 'title', 'description', 'year', 'wikidata_id', 'status', 'generated_at'];
+    protected $fillable = ['slug', 'title', 'description', 'year', 'medium', 'wikidata_id', 'status', 'generated_at'];
 
     protected function casts(): array
     {
@@ -81,7 +82,7 @@ class Work extends Model
     }
 
     /**
-     * @return array{slug: string, title: string, year: int|null, description: string|null}
+     * @return array{slug: string, title: string, year: int|null, description: string|null, medium: string|null}
      */
     public function summary(): array
     {
@@ -90,6 +91,7 @@ class Work extends Model
             'title' => $this->title,
             'year' => $this->year,
             'description' => $this->description,
+            'medium' => $this->medium,
         ];
     }
 }

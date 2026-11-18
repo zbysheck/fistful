@@ -2,12 +2,14 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import WikiLayout from '@/components/WikiLayout.vue';
+import { KINDS } from '@/lib/taxonomy';
 import type { WorkSummary } from '@/types';
 
 type Pending = {
     id: number;
     source: WorkSummary;
     target: WorkSummary;
+    kind: string | null;
     note: string | null;
     source_url: string | null;
     origin: string;
@@ -23,12 +25,20 @@ const notes = reactive<Record<number, string>>(
     Object.fromEntries(props.pending.map((p) => [p.id, p.note ?? ''])),
 );
 
+const kinds = reactive<Record<number, string>>(
+    Object.fromEntries(props.pending.map((p) => [p.id, p.kind ?? ''])),
+);
+
 const opts = { preserveScroll: true };
 
 function approve(item: Pending) {
     router.patch(
         `/admin/inspirations/${item.id}`,
-        { note: notes[item.id] || null, verified: true },
+        {
+            note: notes[item.id] || null,
+            kind: kinds[item.id] || null,
+            verified: true,
+        },
         opts,
     );
 }
@@ -36,7 +46,7 @@ function approve(item: Pending) {
 function save(item: Pending) {
     router.patch(
         `/admin/inspirations/${item.id}`,
-        { note: notes[item.id] || null },
+        { note: notes[item.id] || null, kind: kinds[item.id] || null },
         opts,
     );
 }
@@ -112,6 +122,15 @@ function remove(item: Pending) {
                             >{{ item.source_url }}</a
                         >
                         <span class="text-muted">{{ item.origin }}</span>
+                        <select
+                            v-model="kinds[item.id]"
+                            class="border border-rule px-1 py-0.5"
+                        >
+                            <option value="">general</option>
+                            <option v-for="k in KINDS" :key="k" :value="k">
+                                {{ k }}
+                            </option>
+                        </select>
                         <span class="grow" />
                         <button class="underline" @click="save(item)">
                             Save

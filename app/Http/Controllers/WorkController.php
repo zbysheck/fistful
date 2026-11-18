@@ -82,6 +82,7 @@ class WorkController extends Controller
         $map = function (Inspiration $i, Work $other) use ($isAdmin): array {
             return [
                 'id' => $i->id,
+                'kind' => $i->kind,
                 'work' => $other->summary(),
                 'note' => $i->note,
                 'source_url' => $i->source_url,

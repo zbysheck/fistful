@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Inspiration;
 use App\Models\Work;
 use App\Services\InspirationGenerator;
+use App\Support\Taxonomy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -51,6 +53,7 @@ class AdminController extends Controller
                 'id' => $i->id,
                 'source' => $i->source->summary(),
                 'target' => $i->target->summary(),
+                'kind' => $i->kind,
                 'note' => $i->note,
                 'source_url' => $i->source_url,
                 'origin' => $i->origin,
@@ -75,6 +78,7 @@ class AdminController extends Controller
         $data = $request->validate([
             'note' => ['nullable', 'string', 'max:600'],
             'source_url' => ['nullable', 'url', 'max:2000'],
+            'kind' => ['nullable', Rule::in(Taxonomy::KINDS)],
             'verified' => ['sometimes', 'boolean'],
         ]);
 

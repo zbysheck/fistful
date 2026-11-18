@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue';
 import ConnectionList from '@/components/ConnectionList.vue';
 import WikiLayout from '@/components/WikiLayout.vue';
 import { postJson } from '@/lib/http';
+import { MEDIUM_NAME } from '@/lib/taxonomy';
 import type { Connection, WorkSummary } from '@/types';
 
 const props = defineProps<{
@@ -162,6 +163,12 @@ const updated = computed(() =>
             </div>
             <table class="w-full">
                 <tbody>
+                    <tr v-if="work.medium" class="align-top">
+                        <th class="w-24 px-3 py-1 text-left">Medium</th>
+                        <td class="px-3 py-1">
+                            {{ MEDIUM_NAME[work.medium] ?? work.medium }}
+                        </td>
+                    </tr>
                     <tr v-if="work.description" class="align-top">
                         <th class="w-24 px-3 py-1 text-left">Type</th>
                         <td class="px-3 py-1">{{ work.description }}</td>
@@ -266,6 +273,8 @@ const updated = computed(() =>
             <ConnectionList
                 id="inspired-by"
                 title="Inspired by"
+                direction="by"
+                :current-title="work.title"
                 :items="inspiredBy"
                 :refs="refs"
                 :is-admin="isAdmin"
@@ -274,6 +283,8 @@ const updated = computed(() =>
             <ConnectionList
                 id="inspired"
                 title="Inspired"
+                direction="to"
+                :current-title="work.title"
                 :items="inspired"
                 :refs="refs"
                 :is-admin="isAdmin"
