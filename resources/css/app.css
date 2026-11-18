@@ -1,3 +1,6 @@
+/* Codex - system projektowy Wikimedii: tokeny (kolory, odstępy) i style komponentów. */
+@import '@wikimedia/codex-design-tokens/theme-wikimedia-ui-root.css';
+@import '@wikimedia/codex/dist/codex.style.css';
 @import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -10,25 +13,27 @@
         Arial, sans-serif;
     --font-serif: 'Source Serif 4', 'Linux Libertine', Georgia, Times, serif;
 
-    --color-page: #ffffff;
-    --color-text: #202122;
-    --color-muted: #54595d;
-    --color-rule: #a2a9b1;
-    --color-soft: #f8f9fa;
-    --color-link: #3366cc;
-    --color-visited: #795cb2;
-    --color-redlink: #d73333;
-    --color-notice: #fef6e7;
-    --color-notice-edge: #fc3;
+    /* Kolory z tokenów Codexa, żeby odcienie były 1:1 jak na Wikipedii. */
+    --color-page: var(--background-color-base);
+    --color-text: var(--color-base);
+    --color-muted: var(--color-subtle);
+    --color-rule: var(--border-color-base);
+    --color-rule-subtle: var(--border-color-subtle);
+    --color-soft: var(--background-color-neutral-subtle);
+    --color-neutral: var(--background-color-neutral);
+    --color-link: var(--color-progressive);
+    --color-link-visited: var(--color-visited);
+    --color-redlink: var(--color-destructive);
+    --color-highlight: var(--background-color-progressive-subtle);
 }
 
 body {
-    background: var(--color-page);
-    color: var(--color-text);
+    background: var(--background-color-base);
+    color: var(--color-base);
 }
 
 .wiki-link {
-    color: var(--color-link);
+    color: var(--color-progressive);
 }
 .wiki-link:visited {
     color: var(--color-visited);

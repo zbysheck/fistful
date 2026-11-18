@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
+import { CdxButton, CdxField, CdxTextInput } from '@wikimedia/codex';
 import WikiLayout from '@/components/WikiLayout.vue';
 
 const form = useForm({ password: '' });
@@ -10,21 +11,27 @@ const form = useForm({ password: '' });
     <WikiLayout>
         <main class="max-w-sm py-6">
             <form class="space-y-4" @submit.prevent="form.post('/admin/login')">
-                <input
-                    v-model="form.password"
-                    type="password"
-                    placeholder="Password"
-                    class="w-full rounded-sm border border-rule px-3 py-2"
-                />
-                <p v-if="form.errors.password" class="text-redlink">
-                    {{ form.errors.password }}
-                </p>
-                <button
-                    class="rounded-sm border border-rule bg-soft px-4 py-1.5 hover:bg-page"
+                <h1 class="border-b border-rule pb-1 font-serif text-[1.9rem]">
+                    Editor login
+                </h1>
+                <CdxField
+                    :status="form.errors.password ? 'error' : 'default'"
+                    :messages="{ error: form.errors.password }"
+                >
+                    <template #label>Password</template>
+                    <CdxTextInput
+                        v-model="form.password"
+                        input-type="password"
+                    />
+                </CdxField>
+                <CdxButton
+                    type="submit"
+                    action="progressive"
+                    weight="primary"
                     :disabled="form.processing"
                 >
                     Log in
-                </button>
+                </CdxButton>
             </form>
         </main>
     </WikiLayout>

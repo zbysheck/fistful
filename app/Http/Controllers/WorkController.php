@@ -162,6 +162,27 @@ class WorkController extends Controller
     }
 
     /**
+     * Enter w wyszukiwarce bez wybrania podpowiedzi: najlepsze trafienie, jak "Go" w Wikipedii.
+     */
+    public function go(Request $request, Wikidata $wikidata): RedirectResponse
+    {
+        $q = trim((string) $request->query('search', ''));
+        if ($q === '') {
+            return redirect('/');
+        }
+
+        $local = Work::query()->where('title', $q)->orderByRaw("status = 'ready' desc")->first()
+            ?? Work::query()->where('title', 'like', '%'.addcslashes($q, '%_\\').'%')->orderByRaw("status = 'ready' desc")->first();
+        if ($local !== null) {
+            return redirect('/work/'.$local->slug);
+        }
+
+        $hit = $wikidata->search($q, 1)[0] ?? null;
+
+        return redirect($hit !== null ? '/open/'.$hit['wikidata_id'] : '/');
+    }
+
+    /**
      * Wynik wyszukiwania z Wikidaty: zakładamy pustą stronę (stub) i przekierowujemy na nią.
      */
     public function open(string $qid, Wikidata $wikidata, InspirationGenerator $generator): RedirectResponse

@@ -5,6 +5,7 @@ import ConnectionList from '@/components/ConnectionList.vue';
 import WikiLayout from '@/components/WikiLayout.vue';
 import { postJson } from '@/lib/http';
 import { MEDIUM_NAME } from '@/lib/taxonomy';
+import { CdxButton, CdxMessage, CdxProgressBar } from '@wikimedia/codex';
 import type { Connection, WorkSummary } from '@/types';
 
 const props = defineProps<{
@@ -141,23 +142,21 @@ const updated = computed(() =>
             From Fistful of Ideas, the wiki of influence
         </p>
 
-        <div
+        <CdxMessage
             v-if="work.status === 'ready' && unverified > 0"
-            class="mb-4 flex gap-3 border border-l-[6px] border-rule border-l-notice-edge bg-notice px-3 py-2 text-sm"
+            type="warning"
+            class="mb-4"
         >
-            <span aria-hidden="true">⚠</span>
-            <span
-                >{{ unverified }} of the connections in this article were
-                researched by AI and <b>have not been verified</b> by an editor.
-                Check the cited sources before relying on them.</span
-            >
-        </div>
+            {{ unverified }} of the connections in this article were researched
+            by AI and <b>have not been verified</b> by an editor. Check the
+            cited sources before relying on them.
+        </CdxMessage>
 
         <aside
             class="mb-4 w-full border border-rule bg-soft text-sm md:float-right md:ml-5 md:w-72"
         >
             <div
-                class="bg-[#eaecf0] px-3 py-1.5 text-center font-serif text-base font-semibold"
+                class="bg-neutral px-3 py-1.5 text-center font-serif text-base font-semibold"
             >
                 <i>{{ work.title }}</i>
             </div>
@@ -219,20 +218,26 @@ const updated = computed(() =>
             next.
         </p>
 
-        <div
+        <CdxMessage
             v-if="generating || work.status === 'generating'"
-            class="mt-5 flex gap-3 border border-l-[6px] border-rule border-l-link bg-[#eaf3ff] px-3 py-3 text-sm"
+            type="notice"
+            class="mt-5"
         >
-            <span class="inline-block animate-spin" aria-hidden="true">◌</span>
-            <span
-                ><b>This article is being written.</b> It didn't exist yet, so
+            <p>
+                <b>This article is being written.</b> It didn't exist yet, so
                 its sources are being researched right now. This takes about
-                half a minute.</span
-            >
-        </div>
-        <div
+                half a minute.
+            </p>
+            <CdxProgressBar
+                inline
+                aria-label="Writing the article"
+                class="mt-2"
+            />
+        </CdxMessage>
+        <CdxMessage
             v-else-if="work.status !== 'ready'"
-            class="mt-5 border border-l-[6px] border-rule border-l-notice-edge bg-notice px-3 py-3 text-sm"
+            :type="failed || work.status === 'failed' ? 'error' : 'notice'"
+            class="mt-5"
         >
             <template v-if="limitReached">
                 <b
@@ -243,16 +248,23 @@ const updated = computed(() =>
                 back tomorrow.
             </template>
             <template v-else>
-                <b>{{
-                    failed || work.status === 'failed'
-                        ? 'Writing this article failed.'
-                        : 'Fistful of Ideas does not have an article with this exact name yet.'
-                }}</b>
-                <button class="wiki-link ml-1" @click="generate">
+                <p>
+                    <b>{{
+                        failed || work.status === 'failed'
+                            ? 'Writing this article failed.'
+                            : 'Fistful of Ideas does not have an article with this exact name yet.'
+                    }}</b>
+                </p>
+                <CdxButton
+                    action="progressive"
+                    weight="primary"
+                    class="mt-2"
+                    @click="generate"
+                >
                     Write it now
-                </button>
+                </CdxButton>
             </template>
-        </div>
+        </CdxMessage>
 
         <template v-else>
             <div
@@ -302,7 +314,7 @@ const updated = computed(() =>
                         v-for="ref in refList"
                         :id="`cite-${ref.n}`"
                         :key="ref.n"
-                        class="target:bg-[#eaf3ff]"
+                        class="target:bg-highlight"
                     >
                         <a
                             :href="ref.url"
@@ -317,7 +329,7 @@ const updated = computed(() =>
                 <p
                     v-if="hasWikidata"
                     id="cite-wikidata"
-                    class="mt-2 text-sm target:bg-[#eaf3ff]"
+                    class="mt-2 text-sm target:bg-highlight"
                 >
                     Connections marked <i>[Wikidata]</i> come from the "inspired
                     by" and "based on" statements on

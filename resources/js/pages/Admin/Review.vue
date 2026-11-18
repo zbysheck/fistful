@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
 import WikiLayout from '@/components/WikiLayout.vue';
+import { CdxButton, CdxSelect, CdxTextArea } from '@wikimedia/codex';
 import { KINDS } from '@/lib/taxonomy';
 import type { WorkSummary } from '@/types';
 
@@ -28,6 +29,11 @@ const notes = reactive<Record<number, string>>(
 const kinds = reactive<Record<number, string>>(
     Object.fromEntries(props.pending.map((p) => [p.id, p.kind ?? ''])),
 );
+
+const kindItems = [
+    { value: '', label: 'general' },
+    ...KINDS.map((k) => ({ value: k, label: k })),
+];
 
 const opts = { preserveScroll: true };
 
@@ -62,12 +68,9 @@ function remove(item: Pending) {
         <main class="max-w-4xl py-2">
             <div class="mb-6 flex items-baseline justify-between">
                 <h1 class="font-serif text-3xl">Review queue</h1>
-                <button
-                    class="text-sm underline"
-                    @click="router.post('/admin/logout')"
+                <CdxButton weight="quiet" @click="router.post('/admin/logout')"
+                    >Log out</CdxButton
                 >
-                    Log out
-                </button>
             </div>
             <p class="mb-8 text-sm text-muted">
                 {{ stats.works }} works ({{ stats.ready }} written) ·
@@ -101,10 +104,10 @@ function remove(item: Pending) {
                             >{{ item.target.title }}</Link
                         >
                     </div>
-                    <textarea
+                    <CdxTextArea
                         v-model="notes[item.id]"
-                        rows="2"
-                        class="mt-2 w-full border border-rule p-2"
+                        class="mt-2"
+                        autosize
                     />
                     <p
                         v-if="!item.note_ok"
@@ -118,35 +121,27 @@ function remove(item: Pending) {
                             :href="item.source_url"
                             target="_blank"
                             rel="noopener"
-                            class="max-w-xs truncate underline"
+                            class="wiki-link max-w-xs truncate"
                             >{{ item.source_url }}</a
                         >
                         <span class="text-muted">{{ item.origin }}</span>
-                        <select
-                            v-model="kinds[item.id]"
-                            class="border border-rule px-1 py-0.5"
-                        >
-                            <option value="">general</option>
-                            <option v-for="k in KINDS" :key="k" :value="k">
-                                {{ k }}
-                            </option>
-                        </select>
+                        <CdxSelect
+                            v-model:selected="kinds[item.id]"
+                            :menu-items="kindItems"
+                        />
                         <span class="grow" />
-                        <button class="underline" @click="save(item)">
-                            Save
-                        </button>
-                        <button
-                            class="rounded-sm border border-rule bg-soft px-3 py-1 hover:bg-page"
+                        <CdxButton weight="quiet" @click="save(item)"
+                            >Save</CdxButton
+                        >
+                        <CdxButton
+                            action="progressive"
+                            weight="primary"
                             @click="approve(item)"
+                            >Approve</CdxButton
                         >
-                            Approve
-                        </button>
-                        <button
-                            class="rounded-sm border border-redlink px-3 py-1 text-redlink"
-                            @click="remove(item)"
+                        <CdxButton action="destructive" @click="remove(item)"
+                            >Delete</CdxButton
                         >
-                            Delete
-                        </button>
                     </div>
                 </li>
             </ul>
