@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uruchamiany NA SERWERZE (MyDevil) przez deploy.bat. Aktualizuje kod i aplikację.
+# Uruchamiany NA SERWERZE przez deploy.bat. Aktualizuje kod i aplikacje.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

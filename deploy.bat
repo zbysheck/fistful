@@ -1,10 +1,13 @@
-@echo off
-rem Deploy na staging (MyDevil). Uruchamiaj z katalogu projektu: deploy.bat
-setlocal
-set HOST=zbigniewkisly@s59.mydevil.net
-set APP=domains/fistfulofideas.zbigniewkisly.usermd.net/app
-
-git push || exit /b 1
-call npm run build || exit /b 1
-scp -r public/build %HOST%:%APP%/public/ || exit /b 1
-ssh %HOST% "bash %APP%/deploy/server.sh" || exit /b 1
+@echo off
+rem Deploy na serwer (MyDevil). Uruchamiaj z katalogu projektu: deploy.bat
+rem Ustawienia serwera sa w deploy\project.env (laravel-wizard).
+setlocal
+cd /d "%~dp0"
+for /f "usebackq eol=# tokens=1,* delims==" %%a in ("deploy\project.env") do set "%%a=%%b"
+
+git push -u origin HEAD || exit /b 1
+if exist package.json (
+    call npm run build || exit /b 1
+    scp -r public/build %SSH_HOST%:%APP_DIR%/public/ || exit /b 1
+)
+ssh %SSH_HOST% "bash %APP_DIR%/deploy/server.sh" || exit /b 1

@@ -5,7 +5,17 @@
 
 @theme inline {
     --font-sans:
-        Instrument Sans, ui-sans-serif, system-ui, sans-serif,
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-        'Noto Color Emoji';
+        'Source Serif 4', Georgia, ui-serif, serif, 'Apple Color Emoji',
+        'Segoe UI Emoji';
+    --font-display: 'Source Serif 4', Georgia, serif;
+    --font-logo: 'Rye', Georgia, serif;
+
+    --color-paper: #f4ecdb;
+    --color-ink: #1d1813;
+    --color-blood: #a8261c;
+}
+
+body {
+    background: var(--color-paper);
+    color: var(--color-ink);
 }

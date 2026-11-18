@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Uruchamiany NA SERWERZE przez deploy\set-env.bat: ustawia jedną zmienną w .env i odświeża konfigurację.
+# Uruchamiany NA SERWERZE: ustawia jedna zmienna w .env i odswieza konfiguracje.
+# Uzycie: bash deploy/set-env.sh NAZWA "wartosc"
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

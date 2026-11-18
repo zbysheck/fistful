@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.6-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite'),
+        'daily_limit' => (int) env('AI_DAILY_LIMIT', 200),
+    ],
+
+    'admin' => [
+        'password' => env('ADMIN_PASSWORD'),
+    ],
 ];

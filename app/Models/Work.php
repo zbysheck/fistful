@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
@@ -14,7 +15,7 @@ use Illuminate\Support\Str;
  * @property int|null $year
  * @property string|null $wikidata_id
  * @property string $status
- * @property \Carbon\CarbonImmutable|null $generated_at
+ * @property CarbonImmutable|null $generated_at
  */
 class Work extends Model
 {

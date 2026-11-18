@@ -58,7 +58,8 @@ class Inspiration extends Model
     public static function mentions(string $note, string $title): bool
     {
         $normalize = fn (string $s): string => mb_strtolower((string) preg_replace('/[^\p{L}\p{N} ]+/u', ' ', $s));
-        $short = (string) preg_replace('/^(the|a|an) /i', '', trim((string) preg_split('/[:(]/', $title)[0]));
+        $head = preg_split('/[:(]/', $title);
+        $short = (string) preg_replace('/^(the|a|an) /i', '', trim(is_array($head) ? $head[0] : $title));
 
         return str_contains($normalize($note), trim($normalize($short)));
     }
