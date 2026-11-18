@@ -30,6 +30,20 @@ class InspirationGenerator
     }
 
     /**
+     * Przed ponownym generowaniem: usuwa niezweryfikowane powiązania AI tej strony i oznacza ją do napisania.
+     */
+    public function reset(Work $work): void
+    {
+        Inspiration::query()
+            ->where('origin', Inspiration::ORIGIN_AI)
+            ->where('verified', false)
+            ->where(fn ($q) => $q->where('source_work_id', $work->id)->orWhere('target_work_id', $work->id))
+            ->delete();
+
+        $work->forceFill(['status' => Work::STUB])->save();
+    }
+
+    /**
      * Zwraca false, gdy ktoś inny już generuje tę stronę albo limit dzienny się skończył.
      */
     public function generate(Work $work): bool

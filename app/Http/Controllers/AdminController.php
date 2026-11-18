@@ -117,7 +117,7 @@ class AdminController extends Controller
 
     public function regenerate(Work $work, InspirationGenerator $generator): RedirectResponse
     {
-        $work->forceFill(['status' => Work::STUB])->save();
+        $generator->reset($work);
         $generator->generate($work);
 
         return back();
