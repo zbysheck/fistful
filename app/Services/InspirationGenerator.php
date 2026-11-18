@@ -63,13 +63,16 @@ class InspirationGenerator
                 $this->connect($work, $this->workFor($item['wikidata_id'], $item['title']), null, null, Inspiration::ORIGIN_WIKIDATA, true);
             }
 
-            if ($this->gemini->enabled()) {
-                $this->fromAi($work, $known);
-            }
+            $aiOk = ! $this->gemini->enabled() || $this->fromAi($work, $known);
 
-            $work->forceFill(['status' => Work::READY, 'generated_at' => now()])->save();
+            // AI nie odpowiedziało (np. limit API), a nie mamy nic z Wikidaty: strona do ponowienia.
+            $empty = ! $work->inspiredBy()->exists() && ! $work->inspired()->exists();
+            $work->forceFill([
+                'status' => ! $aiOk && $empty ? Work::FAILED : Work::READY,
+                'generated_at' => now(),
+            ])->save();
 
-            return true;
+            return $aiOk;
         } catch (Throwable $e) {
             Log::error('Generation failed', ['work' => $work->slug, 'error' => $e->getMessage()]);
             $work->forceFill(['status' => Work::FAILED])->save();
@@ -81,14 +84,14 @@ class InspirationGenerator
     /**
      * @param  array{inspired_by: list<array{wikidata_id: string, title: string}>, inspired: list<array{wikidata_id: string, title: string}>}  $known
      */
-    private function fromAi(Work $work, array $known): void
+    private function fromAi(Work $work, array $known): bool
     {
         $answer = $this->gemini->askWithSearch($this->prompt($work, $known));
         $data = $answer !== null ? Gemini::json($answer) : null;
         if ($data === null) {
             Log::warning('AI answer unusable', ['work' => $work->slug, 'answer' => mb_strcut((string) $answer, 0, 500, 'UTF-8')]);
 
-            return;
+            return false;
         }
 
         /** @var list<array{dir: string, title: string, year: int|null, note: string, url: string}> $items */
@@ -115,13 +118,13 @@ class InspirationGenerator
 
         $items = $this->withLiveSources($items);
         if ($items === []) {
-            return;
+            return true;
         }
 
         $matches = $this->wikidata->searchMany(array_map(
             fn (array $i): string => $i['title'],
             $items,
-        ));
+        ), array_map(fn (array $i): ?int => $i['year'], $items));
 
         foreach ($items as $i => $item) {
             $match = $matches[$i] ?? null;
@@ -136,6 +139,8 @@ class InspirationGenerator
             [$source, $target] = $item['dir'] === 'inspired_by' ? [$other, $work] : [$work, $other];
             $this->connect($source, $target, $item['note'], $item['url'], Inspiration::ORIGIN_AI, false);
         }
+
+        return true;
     }
 
     /**

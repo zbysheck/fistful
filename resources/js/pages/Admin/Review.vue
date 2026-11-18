@@ -51,7 +51,7 @@ function remove(item: Pending) {
     <SiteHeader />
     <main class="mx-auto max-w-4xl px-5 py-10">
         <div class="mb-6 flex items-baseline justify-between">
-            <h1 class="font-logo text-3xl">Review queue</h1>
+            <h1 class="font-serif text-3xl">Review queue</h1>
             <button
                 class="text-sm underline"
                 @click="router.post('/admin/logout')"
@@ -59,7 +59,7 @@ function remove(item: Pending) {
                 Log out
             </button>
         </div>
-        <p class="mb-8 text-sm text-ink/60">
+        <p class="mb-8 text-sm text-muted">
             {{ stats.works }} works ({{ stats.ready }} written) ·
             {{ stats.connections }} connections ({{
                 stats.unverified
@@ -67,34 +67,34 @@ function remove(item: Pending) {
             unverified) · AI today: {{ stats.ai_today }}/{{ stats.ai_limit }}
         </p>
 
-        <p v-if="pending.length === 0" class="text-ink/60 italic">
+        <p v-if="pending.length === 0" class="text-muted italic">
             Nothing to review.
         </p>
         <ul class="space-y-6">
             <li
                 v-for="item in pending"
                 :key="item.id"
-                class="border-2 border-ink p-4"
+                class="border border-rule p-4"
             >
-                <div class="font-display text-lg">
+                <div class="text-base">
                     <Link
                         :href="`/work/${item.source.slug}`"
-                        class="font-semibold hover:text-blood"
+                        class="wiki-link font-semibold"
                         >{{ item.source.title }}</Link
                     >
-                    <span class="mx-2 text-blood">→</span>
+                    <span class="mx-2 text-muted">→</span>
                     <Link
                         :href="`/work/${item.target.slug}`"
-                        class="font-semibold hover:text-blood"
+                        class="wiki-link font-semibold"
                         >{{ item.target.title }}</Link
                     >
                 </div>
                 <textarea
                     v-model="notes[item.id]"
                     rows="2"
-                    class="mt-2 w-full border border-ink/40 bg-paper p-2"
+                    class="mt-2 w-full border border-rule p-2"
                 />
-                <p v-if="!item.note_ok" class="text-sm font-bold text-blood">
+                <p v-if="!item.note_ok" class="text-sm font-bold text-redlink">
                     ⚠ The note should name both works by title.
                 </p>
                 <div class="mt-2 flex flex-wrap items-center gap-3 text-sm">
@@ -106,17 +106,17 @@ function remove(item: Pending) {
                         class="max-w-xs truncate underline"
                         >{{ item.source_url }}</a
                     >
-                    <span class="text-ink/50">{{ item.origin }}</span>
+                    <span class="text-muted">{{ item.origin }}</span>
                     <span class="grow" />
                     <button class="underline" @click="save(item)">Save</button>
                     <button
-                        class="border-2 border-ink bg-ink px-3 py-1 text-paper hover:bg-blood"
+                        class="rounded-sm border border-rule bg-soft px-3 py-1 hover:bg-page"
                         @click="approve(item)"
                     >
                         Approve
                     </button>
                     <button
-                        class="border-2 border-blood px-3 py-1 text-blood"
+                        class="rounded-sm border border-redlink px-3 py-1 text-redlink"
                         @click="remove(item)"
                     >
                         Delete

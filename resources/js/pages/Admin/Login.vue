@@ -14,13 +14,13 @@ const form = useForm({ password: '' });
                 v-model="form.password"
                 type="password"
                 placeholder="Password"
-                class="w-full border-2 border-ink bg-paper px-3 py-2"
+                class="w-full rounded-sm border border-rule px-3 py-2"
             />
-            <p v-if="form.errors.password" class="text-blood">
+            <p v-if="form.errors.password" class="text-redlink">
                 {{ form.errors.password }}
             </p>
             <button
-                class="border-2 border-ink bg-ink px-5 py-2 text-paper hover:bg-blood"
+                class="rounded-sm border border-rule bg-soft px-4 py-1.5 hover:bg-page"
                 :disabled="form.processing"
             >
                 Log in

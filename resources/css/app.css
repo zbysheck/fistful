@@ -3,19 +3,36 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* Wygląd jak wiki: biała strona, bezszeryfowy tekst, szeryfowe nagłówki z kreską, niebieskie linki. */
 @theme inline {
     --font-sans:
-        'Source Serif 4', Georgia, ui-serif, serif, 'Apple Color Emoji',
-        'Segoe UI Emoji';
-    --font-display: 'Source Serif 4', Georgia, serif;
-    --font-logo: 'Rye', Georgia, serif;
+        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica,
+        Arial, sans-serif;
+    --font-serif: 'Source Serif 4', 'Linux Libertine', Georgia, Times, serif;
 
-    --color-paper: #f4ecdb;
-    --color-ink: #1d1813;
-    --color-blood: #a8261c;
+    --color-page: #ffffff;
+    --color-text: #202122;
+    --color-muted: #54595d;
+    --color-rule: #a2a9b1;
+    --color-soft: #f8f9fa;
+    --color-link: #3366cc;
+    --color-visited: #795cb2;
+    --color-redlink: #d73333;
+    --color-notice: #fef6e7;
+    --color-notice-edge: #fc3;
 }
 
 body {
-    background: var(--color-paper);
-    color: var(--color-ink);
+    background: var(--color-page);
+    color: var(--color-text);
+}
+
+.wiki-link {
+    color: var(--color-link);
+}
+.wiki-link:visited {
+    color: var(--color-visited);
+}
+.wiki-link:hover {
+    text-decoration: underline;
 }

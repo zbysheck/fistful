@@ -16,9 +16,6 @@ export default defineConfig({
                     weights: [400, 600],
                     styles: ['normal', 'italic'],
                 }),
-                bunny('Rye', {
-                    weights: [400],
-                }),
             ],
         }),
         inertia(),

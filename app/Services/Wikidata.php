@@ -61,11 +61,13 @@ class Wikidata
 
     /**
      * Najlepsze dopasowanie dla każdego tytułu (równolegle). Klucze jak w wejściu.
+     * Gdy znamy rok, wybieramy wynik, którego opis go zawiera (np. "1961 film by Akira Kurosawa").
      *
      * @param  array<int, string>  $queries
+     * @param  array<int, int|null>  $years
      * @return array<int, array{wikidata_id: string, title: string, description: string|null}|null>
      */
-    public function searchMany(array $queries): array
+    public function searchMany(array $queries, array $years = []): array
     {
         if ($queries === []) {
             return [];
@@ -84,7 +86,7 @@ class Wikidata
                             'language' => 'en',
                             'uselang' => 'en',
                             'type' => 'item',
-                            'limit' => 1,
+                            'limit' => 5,
                             'format' => 'json',
                         ]);
                 }
@@ -100,11 +102,22 @@ class Wikidata
         $out = [];
         foreach ($queries as $key => $query) {
             $response = $responses[(string) $key] ?? null;
-            $item = $response instanceof Response ? $response->json('search.0') : null;
-            $out[$key] = is_array($item) && is_string($item['id'] ?? null) && is_string($item['label'] ?? null)
+            $candidates = $response instanceof Response ? (array) $response->json('search', []) : [];
+            $candidates = array_values(array_filter($candidates, fn ($c) => is_array($c) && is_string($c['id'] ?? null) && is_string($c['label'] ?? null)));
+            $year = $years[$key] ?? null;
+            $item = $candidates[0] ?? null;
+            if ($year !== null) {
+                foreach ($candidates as $candidate) {
+                    if (str_contains((string) ($candidate['description'] ?? ''), (string) $year)) {
+                        $item = $candidate;
+                        break;
+                    }
+                }
+            }
+            $out[$key] = is_array($item)
                 ? [
-                    'wikidata_id' => $item['id'],
-                    'title' => $item['label'],
+                    'wikidata_id' => (string) $item['id'],
+                    'title' => (string) $item['label'],
                     'description' => is_string($item['description'] ?? null) ? $item['description'] : null,
                 ]
                 : null;

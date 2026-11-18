@@ -80,15 +80,11 @@ function onKey(event: KeyboardEvent) {
         <input
             v-model="query"
             type="search"
-            :placeholder="
-                props.large
-                    ? 'Search any book, film, game, myth…'
-                    : 'Search works…'
-            "
+            placeholder="Search Fistful of Ideas"
             autocomplete="off"
             :class="[
-                'w-full border-2 border-ink bg-paper text-ink placeholder:text-ink/45 focus:border-blood focus:ring-0 focus:outline-none',
-                props.large ? 'px-5 py-4 text-xl' : 'px-3 py-1.5 text-base',
+                'w-full rounded-sm border border-rule bg-page text-text placeholder:text-muted focus:border-link focus:ring-1 focus:ring-link focus:outline-none',
+                props.large ? 'px-4 py-2.5 text-lg' : 'px-3 py-1.5 text-sm',
             ]"
             @keydown="onKey"
             @focus="open = results.length > 0"
@@ -96,36 +92,33 @@ function onKey(event: KeyboardEvent) {
         />
         <span
             v-if="loading"
-            class="absolute top-1/2 right-3 -translate-y-1/2 text-sm text-ink/50"
+            class="absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted"
             >…</span
         >
         <ul
             v-if="open"
-            class="absolute z-20 mt-1 max-h-[70vh] w-full overflow-y-auto border-2 border-ink bg-paper shadow-[4px_4px_0_0_var(--color-ink)]"
+            class="absolute z-20 mt-px max-h-[70vh] w-full overflow-y-auto border border-rule bg-page shadow-md"
         >
-            <li v-if="results.length === 0" class="px-4 py-3 text-ink/60">
+            <li
+                v-if="results.length === 0"
+                class="px-3 py-2 text-sm text-muted"
+            >
                 Nothing found.
             </li>
             <li
                 v-for="(result, i) in results"
                 :key="result.url"
                 :class="[
-                    'cursor-pointer border-b border-ink/15 px-4 py-2 last:border-b-0',
-                    i === active ? 'bg-ink text-paper' : '',
+                    'cursor-pointer px-3 py-1.5',
+                    i === active ? 'bg-soft' : '',
                 ]"
                 @mousedown.prevent="go(result)"
                 @mouseenter="active = i"
             >
-                <div class="font-display text-lg leading-tight">
+                <div class="text-sm font-semibold text-text">
                     {{ result.title }}
                 </div>
-                <div
-                    v-if="result.description"
-                    :class="[
-                        'text-sm',
-                        i === active ? 'text-paper/70' : 'text-ink/60',
-                    ]"
-                >
+                <div v-if="result.description" class="text-xs text-muted">
                     {{ result.description }}
                 </div>
             </li>
