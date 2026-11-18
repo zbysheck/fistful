@@ -23,6 +23,27 @@ if [ "$PHASE" = key ]; then
     exit 0
 fi
 
+
+# Certyfikat Let's Encrypt dla domeny (bez niego przegladarki nie otworza https://).
+ensure_ssl() {
+    if devil ssl www list 2>/dev/null | grep -q "$DOMAIN"; then
+        echo "Certyfikat SSL juz jest."
+        return 0
+    fi
+    local ip
+    ip=$(devil vhost list public 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    if [ -z "$ip" ]; then
+        echo "Nie znalazlem publicznego IP (devil vhost list public)."
+        return 1
+    fi
+    devil ssl www add "$ip" le le "$DOMAIN"
+}
+
+if [ "$PHASE" = ssl ]; then
+    ensure_ssl
+    exit $?
+fi
+
 [ "$PHASE" = install ] || { echo "Nieznana faza: $PHASE"; exit 1; }
 
 read -r DB_PASSWORD || true
@@ -167,5 +188,8 @@ echo "== 6/6 Migracje i cache =="
 php artisan migrate --force
 [ -L public/storage ] || php artisan storage:link
 php artisan optimize
+
+echo "== SSL =="
+ensure_ssl || echo "Certyfikat SSL nie wyszedl - sprobuj pozniej akcja ssl."
 
 echo "Setup serwera OK: https://$DOMAIN"
