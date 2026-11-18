@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Work;
 use App\Services\InspirationGenerator;
 use App\Services\Wikidata;
 use Illuminate\Foundation\Inspiring;
@@ -28,7 +27,7 @@ Artisan::command('works:generate {qid} {--force : regenerate even if already wri
     }
     $work = $generator->workFor($entity['wikidata_id'], $entity['title'], $entity['description'], $entity['year']);
     if ($this->option('force')) {
-        $work->forceFill(['status' => Work::STUB])->save();
+        $generator->reset($work);
     }
     $generator->generate($work);
     $work->refresh();
