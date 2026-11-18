@@ -132,11 +132,21 @@ class InspirationGenerator
             $items,
         ), array_map(fn (array $i): ?int => $i['year'], $items));
 
+        // Dzieła już podpięte do tej strony (np. z Wikidaty): ten sam tytuł = to samo dzieło, bez duplikatów.
+        $linked = [];
+        foreach ($work->inspiredBy()->with('source')->get() as $i) {
+            $linked['inspired_by'][mb_strtolower($i->source->title)] = $i->source;
+        }
+        foreach ($work->inspired()->with('target')->get() as $i) {
+            $linked['inspired'][mb_strtolower($i->target->title)] = $i->target;
+        }
+
         foreach ($items as $i => $item) {
             $match = $matches[$i] ?? null;
-            $other = $match !== null
+            $known = $linked[$item['dir']][mb_strtolower($item['title'])] ?? null;
+            $other = $known ?? ($match !== null
                 ? $this->workFor($match['wikidata_id'], $match['title'], $match['description'], $item['year'])
-                : $this->workByTitle($item['title'], $item['year']);
+                : $this->workByTitle($item['title'], $item['year']));
 
             if ($other->id === $work->id) {
                 continue;

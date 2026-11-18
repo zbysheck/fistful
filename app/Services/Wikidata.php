@@ -175,7 +175,8 @@ class Wikidata
         }
 
         try {
-            $response = $this->client()->get(self::API, [
+            // Duże elementy (np. The Matrix) mają setki stwierdzeń, więc dłuższy limit czasu.
+            $response = $this->client()->timeout(25)->get(self::API, [
                 'action' => 'wbgetentities',
                 'ids' => $id,
                 'props' => 'labels|descriptions|claims',
