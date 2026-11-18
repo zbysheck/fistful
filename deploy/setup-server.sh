@@ -185,6 +185,8 @@ else
 fi
 
 echo "== 6/6 Migracje i cache =="
+# Haslo z stdin jest wyeksportowane; zmienna srodowiskowa nadpisalaby .env w Laravelu.
+unset DB_PASSWORD
 php artisan migrate --force
 [ -L public/storage ] || php artisan storage:link
 php artisan optimize
