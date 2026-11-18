@@ -2,12 +2,16 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 import ConnectionList from '@/components/ConnectionList.vue';
-import SiteHeader from '@/components/SiteHeader.vue';
+import WikiLayout from '@/components/WikiLayout.vue';
 import { postJson } from '@/lib/http';
 import type { Connection, WorkSummary } from '@/types';
 
 const props = defineProps<{
-    work: WorkSummary & { status: string; wikidata_id: string | null };
+    work: WorkSummary & {
+        status: string;
+        wikidata_id: string | null;
+        generated_at: string | null;
+    };
     inspiredBy: Connection[];
     inspired: Connection[];
     canGenerate: boolean;
@@ -50,149 +54,284 @@ function regenerate() {
         { onFinish: () => (generating.value = false) },
     );
 }
+
+// Przypisy: każde unikalne źródło dostaje numer, jak w Wikipedii.
+const refs = computed(() => {
+    const map: Record<string, number> = {};
+    let n = 0;
+    for (const item of [...props.inspiredBy, ...props.inspired]) {
+        if (item.source_url && !(item.source_url in map)) {
+            map[item.source_url] = ++n;
+        }
+    }
+    return map;
+});
+
+const refList = computed(() =>
+    Object.entries(refs.value).map(([url, n]) => ({
+        n,
+        url,
+        host: url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0],
+        title: decodeURIComponent(url.split('/').pop() ?? url).replace(
+            /_/g,
+            ' ',
+        ),
+    })),
+);
+
+const hasWikidata = computed(() =>
+    [...props.inspiredBy, ...props.inspired].some(
+        (i) => i.origin === 'wikidata',
+    ),
+);
+
+const unverified = computed(
+    () =>
+        [...props.inspiredBy, ...props.inspired].filter((i) => !i.verified)
+            .length,
+);
+
+const updated = computed(() =>
+    props.work.generated_at
+        ? new Date(props.work.generated_at).toLocaleDateString('en-GB', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+          })
+        : null,
+);
 </script>
 
 <template>
     <Head :title="work.title" />
-    <SiteHeader />
-    <main class="mx-auto max-w-6xl px-5 py-6">
-        <h1 class="border-b border-rule pb-1 font-serif text-3xl sm:text-4xl">
+    <WikiLayout :wikidata-id="work.wikidata_id">
+        <template #tabs>
+            <div class="-mt-3 mb-4 flex border-b border-rule text-sm">
+                <span
+                    class="-mb-px border-b-2 border-text px-3 py-2 font-semibold"
+                >
+                    Article
+                </span>
+                <a
+                    v-if="work.wikidata_id"
+                    :href="`https://www.wikidata.org/wiki/${work.wikidata_id}`"
+                    target="_blank"
+                    rel="noopener"
+                    class="wiki-link px-3 py-2"
+                    >Wikidata</a
+                >
+                <span class="grow" />
+                <button
+                    v-if="isAdmin"
+                    class="wiki-link px-3 py-2"
+                    @click="regenerate"
+                >
+                    Regenerate
+                </button>
+            </div>
+        </template>
+
+        <h1
+            class="border-b border-rule pb-1 font-serif text-[1.9rem] leading-tight"
+        >
             {{ work.title }}
         </h1>
-        <p class="mt-1 text-sm text-muted">
+        <p class="mt-1 mb-3 text-sm text-muted">
             From Fistful of Ideas, the wiki of influence
         </p>
 
-        <div class="mt-4 flex flex-col-reverse gap-6 md:flex-row">
-            <div class="min-w-0 flex-1">
-                <p class="leading-relaxed">
-                    <b>{{ work.title }}</b>
-                    <template v-if="work.description">
-                        is {{ article }} {{ work.description }}.</template
-                    >
-                    <template v-else-if="work.year">
-                        ({{ work.year }}).</template
-                    >
-                    This article lists the works it drew on and the works that
-                    drew on it.
-                </p>
+        <div
+            v-if="work.status === 'ready' && unverified > 0"
+            class="mb-4 flex gap-3 border border-l-[6px] border-rule border-l-notice-edge bg-notice px-3 py-2 text-sm"
+        >
+            <span aria-hidden="true">⚠</span>
+            <span
+                >{{ unverified }} of the connections in this article were
+                researched by AI and <b>have not been verified</b> by an editor.
+                Check the cited sources before relying on them.</span
+            >
+        </div>
 
-                <div
-                    v-if="generating || work.status === 'generating'"
-                    class="mt-6 border border-l-8 border-notice-edge bg-notice px-4 py-3"
-                >
-                    <b>This article is being written.</b>
-                    It doesn't exist yet, so we're researching its sources right
-                    now. This takes about half a minute.
-                </div>
-                <div
-                    v-else-if="work.status !== 'ready'"
-                    class="mt-6 border border-l-8 border-notice-edge bg-notice px-4 py-3"
-                >
-                    <template v-if="limitReached">
-                        <b>This article doesn't exist yet.</b> Today's limit for
-                        new articles has been reached, please come back
-                        tomorrow.
-                    </template>
-                    <template v-else>
-                        <b>{{
-                            failed || work.status === 'failed'
-                                ? 'Writing this article failed.'
-                                : "This article doesn't exist yet."
-                        }}</b>
-                        <button class="wiki-link ml-1" @click="generate">
-                            Write it now
-                        </button>
-                    </template>
-                </div>
+        <aside
+            class="mb-4 w-full border border-rule bg-soft text-sm md:float-right md:ml-5 md:w-72"
+        >
+            <div
+                class="bg-[#eaecf0] px-3 py-1.5 text-center font-serif text-base font-semibold"
+            >
+                <i>{{ work.title }}</i>
+            </div>
+            <table class="w-full">
+                <tbody>
+                    <tr v-if="work.description" class="align-top">
+                        <th class="w-24 px-3 py-1 text-left">Type</th>
+                        <td class="px-3 py-1">{{ work.description }}</td>
+                    </tr>
+                    <tr v-if="work.year" class="align-top">
+                        <th class="px-3 py-1 text-left">Released</th>
+                        <td class="px-3 py-1">{{ work.year }}</td>
+                    </tr>
+                    <tr class="align-top">
+                        <th class="px-3 py-1 text-left">Inspired by</th>
+                        <td class="px-3 py-1">
+                            <a href="#inspired-by" class="wiki-link"
+                                >{{ inspiredBy.length }} works</a
+                            >
+                        </td>
+                    </tr>
+                    <tr class="align-top">
+                        <th class="px-3 py-1 text-left">Inspired</th>
+                        <td class="px-3 py-1">
+                            <a href="#inspired" class="wiki-link"
+                                >{{ inspired.length }} works</a
+                            >
+                        </td>
+                    </tr>
+                    <tr v-if="work.wikidata_id" class="align-top">
+                        <th class="px-3 py-1 text-left">Wikidata</th>
+                        <td class="px-3 py-1">
+                            <a
+                                :href="`https://www.wikidata.org/wiki/${work.wikidata_id}`"
+                                target="_blank"
+                                rel="noopener"
+                                class="wiki-link"
+                                >{{ work.wikidata_id }}</a
+                            >
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </aside>
 
-                <template v-else>
-                    <ConnectionList
-                        title="Inspired by"
-                        :items="inspiredBy"
-                        :is-admin="isAdmin"
-                        empty="No documented sources yet."
-                    />
-                    <ConnectionList
-                        title="Inspired"
-                        :items="inspired"
-                        :is-admin="isAdmin"
-                        empty="Nothing documented yet."
-                    />
-                </template>
+        <p class="leading-relaxed">
+            <b>{{ work.title }}</b>
+            <template v-if="work.description">
+                is {{ article }} {{ work.description }}.</template
+            >
+            <template v-else-if="work.year"> ({{ work.year }}).</template>
+            This article traces where its ideas came from and where they went
+            next.
+        </p>
 
-                <div
-                    v-if="isAdmin"
-                    class="mt-10 flex gap-4 border-t border-rule pt-3 text-sm"
+        <div
+            v-if="generating || work.status === 'generating'"
+            class="mt-5 flex gap-3 border border-l-[6px] border-rule border-l-link bg-[#eaf3ff] px-3 py-3 text-sm"
+        >
+            <span class="inline-block animate-spin" aria-hidden="true">◌</span>
+            <span
+                ><b>This article is being written.</b> It didn't exist yet, so
+                its sources are being researched right now. This takes about
+                half a minute.</span
+            >
+        </div>
+        <div
+            v-else-if="work.status !== 'ready'"
+            class="mt-5 border border-l-[6px] border-rule border-l-notice-edge bg-notice px-3 py-3 text-sm"
+        >
+            <template v-if="limitReached">
+                <b
+                    >Fistful of Ideas does not have an article with this exact
+                    name yet.</b
                 >
-                    <button class="wiki-link" @click="regenerate">
-                        Regenerate with AI
-                    </button>
-                    <Link href="/admin" class="wiki-link">Review queue</Link>
-                </div>
+                Today's limit for new articles has been reached; please come
+                back tomorrow.
+            </template>
+            <template v-else>
+                <b>{{
+                    failed || work.status === 'failed'
+                        ? 'Writing this article failed.'
+                        : 'Fistful of Ideas does not have an article with this exact name yet.'
+                }}</b>
+                <button class="wiki-link ml-1" @click="generate">
+                    Write it now
+                </button>
+            </template>
+        </div>
+
+        <template v-else>
+            <div
+                class="mt-5 inline-block border border-rule bg-soft px-4 py-2 text-sm"
+            >
+                <div class="mb-1 text-center font-bold">Contents</div>
+                <ol class="list-decimal pl-5">
+                    <li>
+                        <a href="#inspired-by" class="wiki-link">Inspired by</a>
+                    </li>
+                    <li><a href="#inspired" class="wiki-link">Inspired</a></li>
+                    <li>
+                        <a href="#references" class="wiki-link">References</a>
+                    </li>
+                </ol>
             </div>
 
-            <aside
-                class="w-full shrink-0 self-start border border-rule bg-soft text-sm md:w-72"
-            >
-                <div
-                    class="px-3 py-2 text-center font-serif text-lg font-semibold"
+            <ConnectionList
+                id="inspired-by"
+                title="Inspired by"
+                :items="inspiredBy"
+                :refs="refs"
+                :is-admin="isAdmin"
+                empty="No documented sources yet."
+            />
+            <ConnectionList
+                id="inspired"
+                title="Inspired"
+                :items="inspired"
+                :refs="refs"
+                :is-admin="isAdmin"
+                empty="Nothing documented yet."
+            />
+
+            <section id="references" class="mt-6 scroll-mt-4">
+                <h2
+                    class="mb-2 border-b border-rule pb-0.5 font-serif text-[1.6rem]"
                 >
-                    {{ work.title }}
-                </div>
-                <table class="w-full">
-                    <tbody>
-                        <tr v-if="work.year" class="border-t border-rule">
-                            <th class="px-3 py-1.5 text-left align-top">
-                                Released
-                            </th>
-                            <td class="px-3 py-1.5">{{ work.year }}</td>
-                        </tr>
-                        <tr
-                            v-if="work.description"
-                            class="border-t border-rule"
-                        >
-                            <th class="px-3 py-1.5 text-left align-top">
-                                Type
-                            </th>
-                            <td class="px-3 py-1.5">{{ work.description }}</td>
-                        </tr>
-                        <tr class="border-t border-rule">
-                            <th class="px-3 py-1.5 text-left align-top">
-                                Inspired by
-                            </th>
-                            <td class="px-3 py-1.5">
-                                {{ inspiredBy.length }} works
-                            </td>
-                        </tr>
-                        <tr class="border-t border-rule">
-                            <th class="px-3 py-1.5 text-left align-top">
-                                Inspired
-                            </th>
-                            <td class="px-3 py-1.5">
-                                {{ inspired.length }} works
-                            </td>
-                        </tr>
-                        <tr
-                            v-if="work.wikidata_id"
-                            class="border-t border-rule"
-                        >
-                            <th class="px-3 py-1.5 text-left align-top">
-                                Wikidata
-                            </th>
-                            <td class="px-3 py-1.5">
-                                <a
-                                    :href="`https://www.wikidata.org/wiki/${work.wikidata_id}`"
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="wiki-link"
-                                    >{{ work.wikidata_id }}</a
-                                >
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </aside>
-        </div>
-    </main>
+                    References
+                </h2>
+                <ol class="list-decimal space-y-1 pl-6 text-sm">
+                    <li
+                        v-for="ref in refList"
+                        :id="`cite-${ref.n}`"
+                        :key="ref.n"
+                        class="target:bg-[#eaf3ff]"
+                    >
+                        <a
+                            :href="ref.url"
+                            target="_blank"
+                            rel="noopener nofollow"
+                            class="wiki-link"
+                            >"{{ ref.title }}"</a
+                        >. <i>{{ ref.host }}</i
+                        >.
+                    </li>
+                </ol>
+                <p
+                    v-if="hasWikidata"
+                    id="cite-wikidata"
+                    class="mt-2 text-sm target:bg-[#eaf3ff]"
+                >
+                    Connections marked <i>[Wikidata]</i> come from the "inspired
+                    by" and "based on" statements on
+                    <a
+                        v-if="work.wikidata_id"
+                        :href="`https://www.wikidata.org/wiki/${work.wikidata_id}`"
+                        target="_blank"
+                        rel="noopener"
+                        class="wiki-link"
+                        >Wikidata</a
+                    ><template v-else>Wikidata</template>.
+                </p>
+                <p
+                    v-if="refList.length === 0 && !hasWikidata"
+                    class="text-sm text-muted italic"
+                >
+                    No references yet.
+                </p>
+            </section>
+        </template>
+
+        <template #footer>
+            <p v-if="updated">
+                This article was last written on {{ updated }}.
+            </p>
+        </template>
+    </WikiLayout>
 </template>

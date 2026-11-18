@@ -30,7 +30,7 @@ class Wikidata
                 'language' => 'en',
                 'uselang' => 'en',
                 'type' => 'item',
-                'limit' => $limit,
+                'limit' => 30,
                 'format' => 'json',
             ]);
         } catch (Throwable $e) {
@@ -56,7 +56,43 @@ class Wikidata
             ];
         }
 
-        return $results;
+        return array_slice(self::rank($results), 0, $limit);
+    }
+
+    /**
+     * Dzieła (film, powieść, gra...) na górę, strony ujednoznaczniające i rośliny na dół.
+     * Wikidata sortuje po trafności etykiety, więc np. film "Jacob's Ladder" bywa dopiero 7.
+     *
+     * @template T of array<string, mixed>
+     *
+     * @param  list<T>  $items
+     * @return list<T>
+     */
+    public static function rank(array $items): array
+    {
+        $score = function (array $item): int {
+            $d = mb_strtolower(is_string($item['description'] ?? null) ? $item['description'] : '');
+            $s = 0;
+            if (preg_match('/\b(film|movie|novel|book|story|stories|video game|game|comic|manga|anime|series|album|song|painting|play|opera|poem|musical|novella|television|tv|short|collection|franchise|myth|epic|scripture|text)\b/', $d) === 1) {
+                $s += 3;
+            }
+            if (preg_match('/\b(1[0-9]{3}|20[0-9]{2})\b/', $d) === 1) {
+                $s += 1;
+            }
+            if (str_contains($d, 'disambiguation') || str_contains($d, 'species') || str_contains($d, 'genus') || $d === '') {
+                $s -= 3;
+            }
+
+            return $s;
+        };
+
+        $indexed = [];
+        foreach ($items as $i => $item) {
+            $indexed[] = [$score($item), $i, $item];
+        }
+        usort($indexed, fn (array $a, array $b) => [$b[0], $a[1]] <=> [$a[0], $b[1]]);
+
+        return array_map(fn (array $x) => $x[2], $indexed);
     }
 
     /**
@@ -86,7 +122,7 @@ class Wikidata
                             'language' => 'en',
                             'uselang' => 'en',
                             'type' => 'item',
-                            'limit' => 5,
+                            'limit' => 15,
                             'format' => 'json',
                         ]);
                 }
@@ -102,8 +138,17 @@ class Wikidata
         $out = [];
         foreach ($queries as $key => $query) {
             $response = $responses[(string) $key] ?? null;
-            $candidates = $response instanceof Response ? (array) $response->json('search', []) : [];
-            $candidates = array_values(array_filter($candidates, fn ($c) => is_array($c) && is_string($c['id'] ?? null) && is_string($c['label'] ?? null)));
+            $candidates = [];
+            foreach ($response instanceof Response ? (array) $response->json('search', []) : [] as $c) {
+                if (is_array($c) && is_string($c['id'] ?? null) && is_string($c['label'] ?? null)) {
+                    $candidates[] = [
+                        'wikidata_id' => $c['id'],
+                        'title' => $c['label'],
+                        'description' => is_string($c['description'] ?? null) ? $c['description'] : null,
+                    ];
+                }
+            }
+            $candidates = self::rank($candidates);
             $year = $years[$key] ?? null;
             $item = $candidates[0] ?? null;
             if ($year !== null) {
@@ -114,13 +159,7 @@ class Wikidata
                     }
                 }
             }
-            $out[$key] = is_array($item)
-                ? [
-                    'wikidata_id' => (string) $item['id'],
-                    'title' => (string) $item['label'],
-                    'description' => is_string($item['description'] ?? null) ? $item['description'] : null,
-                ]
-                : null;
+            $out[$key] = $item;
         }
 
         return $out;

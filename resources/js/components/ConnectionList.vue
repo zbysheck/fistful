@@ -4,30 +4,29 @@ import { noteParts } from '@/lib/http';
 import type { Connection } from '@/types';
 
 defineProps<{
+    id: string;
     title: string;
     items: Connection[];
     empty: string;
     isAdmin: boolean;
+    refs: Record<string, number>;
 }>();
 </script>
 
 <template>
-    <section class="mt-8">
-        <h2 class="mb-3 border-b border-rule pb-1 font-serif text-2xl">
+    <section :id="id" class="mt-6 scroll-mt-4">
+        <h2 class="mb-2 border-b border-rule pb-0.5 font-serif text-[1.6rem]">
             {{ title }}
         </h2>
         <p v-if="items.length === 0" class="text-muted italic">
             {{ empty }}
         </p>
-        <ul class="list-disc space-y-2 pl-6 leading-relaxed">
+        <ul class="list-disc space-y-1.5 pl-6 leading-relaxed">
             <li v-for="item in items" :key="item.id">
-                <Link
-                    :href="`/work/${item.work.slug}`"
-                    class="wiki-link font-semibold"
-                    >{{ item.work.title }}</Link
-                ><span v-if="item.work.year" class="text-muted">
-                    ({{ item.work.year }})</span
-                >
+                <Link :href="`/work/${item.work.slug}`" class="wiki-link">{{
+                    item.work.title
+                }}</Link
+                ><span v-if="item.work.year"> ({{ item.work.year }})</span>
                 <template v-if="item.note">
                     –
                     <template
@@ -39,36 +38,27 @@ defineProps<{
                     </template>
                 </template>
                 <template v-else-if="item.work.description">
-                    –
-                    <span class="text-muted">{{ item.work.description }}</span>
+                    – {{ item.work.description }}
                 </template>
-                <sup v-if="item.source_url" class="ml-0.5 text-xs">
-                    <a
-                        :href="item.source_url"
-                        target="_blank"
-                        rel="noopener nofollow"
-                        class="wiki-link"
-                        >[source]</a
-                    >
-                </sup>
                 <sup
-                    v-else-if="item.origin === 'wikidata'"
-                    class="ml-0.5 text-xs"
-                >
-                    <a
-                        href="https://www.wikidata.org/"
-                        target="_blank"
-                        rel="noopener"
+                    v-if="item.source_url && refs[item.source_url]"
+                    class="text-[0.7em]"
+                    ><a
+                        :href="`#cite-${refs[item.source_url]}`"
                         class="wiki-link"
-                        title="Listed on Wikidata as 'inspired by' or 'based on'"
+                        >[{{ refs[item.source_url] }}]</a
+                    ></sup
+                ><sup
+                    v-if="!item.source_url && item.origin === 'wikidata'"
+                    class="text-[0.7em]"
+                    ><a href="#cite-wikidata" class="wiki-link"
                         >[Wikidata]</a
-                    >
-                </sup>
-                <sup
+                    ></sup
+                ><sup
                     v-if="!item.verified"
-                    class="ml-0.5 text-xs whitespace-nowrap text-muted italic"
+                    class="text-[0.7em] whitespace-nowrap italic"
                     title="Written by AI from web sources, not yet checked by a human"
-                    >[unverified]</sup
+                    >[<span class="text-link">unverified</span>]</sup
                 >
                 <span
                     v-if="isAdmin && !item.note_ok"

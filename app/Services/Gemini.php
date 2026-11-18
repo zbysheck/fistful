@@ -16,9 +16,10 @@ class Gemini
     }
 
     /**
-     * Pyta model z wyszukiwaniem Google i zwraca tekst odpowiedzi (albo null).
+     * Pyta model. Najpierw z wyszukiwaniem Google (jeśli $search), a gdy żaden model go nie obsłuży
+     * (np. darmowy poziom ma zerowy limit na wyszukiwanie), zwraca null - wtedy wołający może spróbować bez.
      */
-    public function askWithSearch(string $prompt): ?string
+    public function ask(string $prompt, bool $search): ?string
     {
         $key = config('services.gemini.key');
         $models = config('services.gemini.model');
@@ -26,28 +27,33 @@ class Gemini
             return null;
         }
 
+        $body = [
+            'contents' => [['parts' => [['text' => $prompt]]]],
+            'generationConfig' => ['thinkingConfig' => ['thinkingLevel' => 'low']],
+        ];
+        if ($search) {
+            $body['tools'] = [['google_search' => (object) []]];
+        }
+
         // Darmowe modele bywają przeciążone (503, 429), więc próbujemy kolejnych z listy.
         foreach (array_filter(array_map('trim', explode(',', $models))) as $model) {
             try {
                 $response = Http::withHeaders(['x-goog-api-key' => $key])
                     ->connectTimeout(5)
-                    ->timeout(90)
-                    ->post('https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent', [
-                        'contents' => [['parts' => [['text' => $prompt]]]],
-                        'tools' => [['google_search' => (object) []]],
-                        'generationConfig' => ['thinkingConfig' => ['thinkingLevel' => 'low']],
-                    ]);
+                    ->timeout(50)
+                    ->post('https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent', $body);
             } catch (Throwable $e) {
-                Log::warning('Gemini: no response', ['model' => $model, 'error' => $e->getMessage()]);
+                Log::warning('Gemini: no response', ['model' => $model, 'search' => $search, 'error' => $e->getMessage()]);
 
                 continue;
             }
 
             if (! $response->successful()) {
-                Log::warning('Gemini: API error', [
+                Log::info('Gemini: API error', [
                     'model' => $model,
+                    'search' => $search,
                     'status' => $response->status(),
-                    'body' => mb_strcut($response->body(), 0, 500, 'UTF-8'),
+                    'body' => mb_strcut($response->body(), 0, 300, 'UTF-8'),
                 ]);
 
                 continue;

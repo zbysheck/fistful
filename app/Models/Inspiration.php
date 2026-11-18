@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $source_url
  * @property string $origin
  * @property bool $verified
+ * @property CarbonImmutable|null $created_at
  * @property-read Work $source
  * @property-read Work $target
  */

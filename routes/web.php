@@ -6,6 +6,9 @@ use App\Http\Middleware\EnsureAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [WorkController::class, 'home'])->name('home');
+Route::get('/random', [WorkController::class, 'random'])->name('random');
+Route::get('/recent', [WorkController::class, 'recent'])->name('recent');
+Route::get('/about', [WorkController::class, 'about'])->name('about');
 Route::get('/search', [WorkController::class, 'search'])->middleware('throttle:60,1')->name('search');
 Route::get('/open/{qid}', [WorkController::class, 'open'])->middleware('throttle:30,1')->name('open');
 Route::get('/work/{work}', [WorkController::class, 'show'])->name('work.show');

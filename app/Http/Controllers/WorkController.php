@@ -23,10 +23,56 @@ class WorkController extends Controller
             ->get()
             ->map(fn (Work $w) => $w->summary());
 
+        // "Did you know…": losowe powiązania z opisem.
+        $facts = Inspiration::query()
+            ->with(['source', 'target'])
+            ->whereNotNull('note')
+            ->inRandomOrder()
+            ->limit(4)
+            ->get()
+            ->map(fn (Inspiration $i) => [
+                'note' => $i->note,
+                'source' => $i->source->summary(),
+                'target' => $i->target->summary(),
+            ]);
+
         return Inertia::render('Home', [
             'recent' => $recent,
-            'count' => Work::query()->count(),
+            'facts' => $facts,
+            'count' => Work::query()->where('status', Work::READY)->count(),
+            'connections' => Inspiration::query()->count(),
         ]);
+    }
+
+    public function random(): RedirectResponse
+    {
+        $slug = Work::query()->where('status', Work::READY)->inRandomOrder()->value('slug');
+
+        return redirect(is_string($slug) ? '/work/'.$slug : '/');
+    }
+
+    public function recent(): Response
+    {
+        $changes = Inspiration::query()
+            ->with(['source', 'target'])
+            ->latest()
+            ->limit(100)
+            ->get()
+            ->map(fn (Inspiration $i) => [
+                'id' => $i->id,
+                'at' => $i->created_at?->toIso8601String(),
+                'source' => $i->source->summary(),
+                'target' => $i->target->summary(),
+                'origin' => $i->origin,
+                'verified' => $i->verified,
+            ]);
+
+        return Inertia::render('Recent', ['changes' => $changes]);
+    }
+
+    public function about(): Response
+    {
+        return Inertia::render('About');
     }
 
     public function show(Request $request, Work $work, InspirationGenerator $generator): Response
@@ -58,6 +104,7 @@ class WorkController extends Controller
                 ...$work->summary(),
                 'status' => $work->status,
                 'wikidata_id' => $work->wikidata_id,
+                'generated_at' => $work->generated_at?->toIso8601String(),
             ],
             'inspiredBy' => $inspiredBy,
             'inspired' => $inspired,

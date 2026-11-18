@@ -48,6 +48,7 @@ class InspirationGenerator
         if ($claimed === 0) {
             return false;
         }
+        $work->refresh();
 
         Cache::add($this->counterKey(), 0, now()->addDay());
         Cache::increment($this->counterKey());
@@ -86,7 +87,9 @@ class InspirationGenerator
      */
     private function fromAi(Work $work, array $known): bool
     {
-        $answer = $this->gemini->askWithSearch($this->prompt($work, $known));
+        // Z wyszukiwaniem, a gdy limit na nie się skończył - z wiedzy modelu (źródła i tak sprawdzamy niżej).
+        $answer = $this->gemini->ask($this->prompt($work, $known, true), true)
+            ?? $this->gemini->ask($this->prompt($work, $known, false), false);
         $data = $answer !== null ? Gemini::json($answer) : null;
         if ($data === null) {
             Log::warning('AI answer unusable', ['work' => $work->slug, 'answer' => mb_strcut((string) $answer, 0, 500, 'UTF-8')]);
@@ -116,7 +119,7 @@ class InspirationGenerator
             }
         }
 
-        $items = $this->withLiveSources($items);
+        $items = $this->withLiveSources($items, $work);
         if ($items === []) {
             return true;
         }
@@ -144,12 +147,13 @@ class InspirationGenerator
     }
 
     /**
-     * Odrzuca powiązania, których źródło nie istnieje (404 itp.) - typowy objaw zmyślonego linku.
+     * Odrzuca powiązania, których źródło nie istnieje (404 itp.) albo nie wspomina drugiego dzieła -
+     * typowe objawy zmyślonego linku.
      *
      * @param  list<array{dir: string, title: string, year: int|null, note: string, url: string}>  $items
      * @return list<array{dir: string, title: string, year: int|null, note: string, url: string}>
      */
-    private function withLiveSources(array $items): array
+    private function withLiveSources(array $items, Work $work): array
     {
         if ($items === []) {
             return [];
@@ -172,13 +176,22 @@ class InspirationGenerator
             return $items;
         }
 
-        return array_values(array_filter($items, function (array $item, int $i) use ($responses): bool {
+        return array_values(array_filter($items, function (array $item, int $i) use ($responses, $work): bool {
             $response = $responses[(string) $i] ?? null;
             if (! $response instanceof Response) {
                 return true; // timeout itp.: nie wiemy, zostawiamy do ręcznego sprawdzenia
             }
+            if (in_array($response->status(), [404, 410], true)) {
+                return false;
+            }
+            if (! $response->successful()) {
+                return true; // 403 od zabezpieczeń strony itp.: zostawiamy do ręcznego sprawdzenia
+            }
 
-            return ! in_array($response->status(), [404, 410], true);
+            // Strona źródła musi wymieniać oba dzieła.
+            $text = html_entity_decode(strip_tags($response->body()), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+            return Inspiration::mentions($text, $item['title']) && Inspiration::mentions($text, $work->title);
         }, ARRAY_FILTER_USE_BOTH));
     }
 
@@ -247,15 +260,19 @@ class InspirationGenerator
     /**
      * @param  array{inspired_by: list<array{wikidata_id: string, title: string}>, inspired: list<array{wikidata_id: string, title: string}>}  $known
      */
-    private function prompt(Work $work, array $known): string
+    private function prompt(Work $work, array $known, bool $search): string
     {
         $name = $work->title.($work->year !== null ? ' ('.$work->year.')' : '').($work->description !== null ? ' - '.$work->description : '');
         $knownBy = implode('; ', array_column($known['inspired_by'], 'title')) ?: 'none';
         $knownTo = implode('; ', array_column($known['inspired'], 'title')) ?: 'none';
 
+        $research = $search
+            ? 'Use Google Search.'
+            : 'Use only what you know with high confidence; leave out anything you are unsure of.';
+
         return <<<PROMPT
         You are writing entries for "Fistful of Ideas", a wiki that tracks how creative works inspire each other
-        (books, films, TV, games, comics, music, art, myths, religious texts). Use Google Search.
+        (books, films, TV, games, comics, music, art, myths, religious texts). {$research}
 
         The work: {$name}
 
@@ -269,7 +286,8 @@ class InspirationGenerator
         Rules:
         - Only connections that a creator stated or that a reliable source (encyclopedia, interview, reputable
           press, scholarly text) documents. No guesses, no "fans think", no mere genre similarity.
-        - Each connection must have "source_url": a real page you found that states the connection.
+        - Each connection must have "source_url": a real page that states the connection, preferably the English
+          Wikipedia article of one of the two works (https://en.wikipedia.org/wiki/...) or an interview.
         - "note": ONE natural English sentence that names BOTH works by their titles (in *asterisks*) and makes the
           direction clear, so it reads correctly on either work's page. Never write "this film", "the novel" etc.
           instead of a title. Example: "Adrian Lyne modeled the death imagery in *Jacob's Ladder* on the Brothers

@@ -92,7 +92,7 @@ class WorkTest extends TestCase
                 'inspired' => [],
             ])]]]]]]),
             'example.com/missing' => Http::response('', 404),
-            'example.com/*' => Http::response('ok'),
+            'example.com/*' => Http::response('<p>Yojimbo was based on Red Harvest by Hammett.</p>'),
             'www.wikidata.org/*' => Http::response(['search' => [['id' => 'Q3', 'label' => 'Red Harvest', 'description' => 'novel']]]),
         ]);
 
