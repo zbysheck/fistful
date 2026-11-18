@@ -180,7 +180,8 @@ class Wikidata
                 'action' => 'wbgetentities',
                 'ids' => $id,
                 'props' => 'labels|descriptions|claims',
-                'languages' => 'en',
+                // Część elementów (np. The Matrix) ma etykietę tylko jako "mul" (wspólna dla wszystkich języków).
+                'languages' => 'en|mul',
                 'format' => 'json',
             ]);
         } catch (Throwable $e) {
@@ -194,7 +195,7 @@ class Wikidata
             return null;
         }
 
-        $title = $entity['labels']['en']['value'] ?? null;
+        $title = $entity['labels']['en']['value'] ?? ($entity['labels']['mul']['value'] ?? null);
         if (! is_string($title) || $title === '') {
             return null;
         }
@@ -225,7 +226,7 @@ class Wikidata
           { wd:{$id} wdt:P941|wdt:P144 ?item . BIND("by" AS ?dir) }
           UNION
           { ?item wdt:P941|wdt:P144 wd:{$id} . BIND("to" AS ?dir) }
-          SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+          SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul". }
         } LIMIT 60
         SPARQL;
 

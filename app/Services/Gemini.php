@@ -40,7 +40,7 @@ class Gemini
             try {
                 $response = Http::withHeaders(['x-goog-api-key' => $key])
                     ->connectTimeout(5)
-                    ->timeout(50)
+                    ->timeout(35)
                     ->post('https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent', $body);
             } catch (Throwable $e) {
                 Log::warning('Gemini: no response', ['model' => $model, 'search' => $search, 'error' => $e->getMessage()]);
